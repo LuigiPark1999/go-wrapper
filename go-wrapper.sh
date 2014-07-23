@@ -30,8 +30,6 @@ last=0
 
 dir="$(pwd)"
 while [ "$dir" != / -a "$dir" != "$HOME" ]; do
-	echo "Checking $dir"
-
 	# Unless the invoked name starts with 'r', check for App Engine SDK.
 	if [ "${0:0:1}" != "r" ]; then
 		if [ -x "$dir/sdk/dev_appserver.py" -a -x "$dir/sdk/$name" ]; then
