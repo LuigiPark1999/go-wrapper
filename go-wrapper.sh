@@ -46,7 +46,7 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	fi
 
 	# Check if there's a src dir containing *.go files here
-	if [ -d "$dir/src" ] && find "$dir/src" -maxdepth 10 -name '*.go' | grep . -m 1 --quiet; then
+	if [ -d "$dir/src" ] && find -L "$dir/src" -maxdepth 10 -name '*.go' -print -quit | grep . --quiet; then
 
 		# Skip _vendor/src, let below code handle that
 		if [[ "$dir" != */_vendor ]]; then
@@ -62,7 +62,7 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	fi
 
 	# Check if there's a _vendor/src dir containing *.go files here
-	if [ -d "$dir/_vendor/src" ] && find "$dir/_vendor/src" -maxdepth 10 -name '*.go' | grep . -m 1 --quiet; then
+	if [ -d "$dir/_vendor/src" ] && find -L "$dir/_vendor/src" -maxdepth 10 -name '*.go' -print -quit | grep . --quiet; then
 
 		# Add to the front of $GOPATH even if already in $GOROOT or $GOPATH
 		# This should make sure "go get" puts packages here.
