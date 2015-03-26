@@ -18,6 +18,10 @@ fi
 
 real_prog="$GOROOT/bin/$(basename "$name")"
 
+if [ "$AE_PATH" = "" ]; then
+	AE_PATH=~/opt/google_appengine
+fi
+
 if [ ! -f "$real_prog" ]; then
 	echo "Can't run $real_prog: does not exist" >2
 	exit 1
@@ -32,16 +36,18 @@ dir="$(pwd)"
 while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	# Unless the invoked name starts with 'r', check for App Engine SDK.
 	if [ "${0:0:1}" != "r" ]; then
-		if [ -x "$dir/sdk/dev_appserver.py" -a -x "$dir/sdk/$name" ]; then
+		if [ -f "$dir/app.yaml" ]; then
 			# App engine path
-			real_prog="$dir/sdk/$name"
-			export "GOPATH=$GOPATH:$dir/sdk/goroot"
-
-			last=1
-		elif [ -f "$dir/app.yaml" ]; then
-			export "GOPATH=$GOPATH:$dir" # Doesn't work: no src/ dir...
-
-			last=1
+			if [ "$name" = "go" ]; then
+				name="goapp"
+			fi
+			ae_prog="$AE_PATH/$name"
+			if [ -x "$ae_prog" ]; then
+				real_prog="$ae_prog"
+				export "GOPATH=$GOPATH:$AE_PATH/goroot"
+				export "GOPATH=$GOPATH:$dir" # Doesn't work otherwise: no src/ dir...
+				last=1
+			fi
 		fi
 	fi
 

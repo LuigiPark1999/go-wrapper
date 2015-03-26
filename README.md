@@ -1,14 +1,18 @@
 # go-wrapper
 
-go-wrapper is a script that can be used to automatically add the current go workspace to your `$GOPATH` environment variable when you invoke golang tools.
+go-wrapper is a script that can be used to automatically add the current Go workspace to your `$GOPATH` environment variable when you invoke golang tools.
 
 If it finds a `_vendor/src`, it adds that to the *front* of `$GOPATH`, so that `go get` should automatically put packages there. If this is undesired, there are several options:
  * invoke `go get` without using this script, as `$GOROOT/bin/go get`, or
  * edit the script to put it at the end instead., or
  * invoke `go get` from outside your workspace: `(cd ~ ; go get $PACKAGE)`
 
-If you use Go for App Engine, it will use the App Engine SDK tools if it finds a directory named `sdk` with the App Engine SDK in it in any parent directory before it finds a `src` directory.
-This can be disabled by symlinking it to a name with an "r" prefix (for "real"), such as "rgo" for the `go` tool and invoking it by that name.
+If you use Go for App Engine, it will use the App Engine SDK tools if:
+ * it finds them in $AE_PATH or ~/opt/google_appengine (default)
+ * the current directory or any ancestor encoutered before a workspace root contains a file named `app.yaml`.
+It will also use `goapp` if invoked as `go`.
+
+App engine tools can be disabled by symlinking the script to a name with an "r" prefix (for "real"), such as "rgo" for the `go` tool and invoking it by that name.
 
 ## Requirements
 
