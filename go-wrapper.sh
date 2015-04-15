@@ -9,17 +9,20 @@
 #
 # License: See the comment at the end of the file.
 
-
 # If the name starts with 'r' (for real), ignore app engine.
 name="$(basename "$0")"
+allow_ae=1
 if [ "${name:0:1}" = "r" ]; then
 	name="${name:1}"
+	allow_ae=0
 fi
 
 real_prog="$GOROOT/bin/$(basename "$name")"
 
+args=("$@")
+
 if [ "$AE_PATH" = "" ]; then
-	AE_PATH=~/opt/google_appengine
+	AE_PATH=~/opt/go_appengine
 fi
 
 if [ ! -f "$real_prog" ]; then
@@ -35,19 +38,24 @@ last=0
 dir="$(pwd)"
 while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	# Unless the invoked name starts with 'r', check for App Engine SDK.
-	if [ "${0:0:1}" != "r" ]; then
+	if [ "$allow_ae" = "1" ]; then
 		if [ -f "$dir/app.yaml" ]; then
 			# App engine path
-			if [ "$name" = "go" ]; then
-				name="goapp"
-			fi
 			ae_prog="$AE_PATH/$name"
 			if [ -x "$ae_prog" ]; then
 				real_prog="$ae_prog"
-				export "GOPATH=$GOPATH:$AE_PATH/goroot"
-				export "GOPATH=$GOPATH:$dir" # Doesn't work otherwise: no src/ dir...
-				last=1
 			fi
+			export "GOPATH=$GOPATH:$AE_PATH/goroot"
+
+			if [ "$name" = go ]; then
+				case "${args[0]}" in
+					build|test)
+						real_prog="$AE_PATH/goapp"
+				esac
+			elif [ "$name" = errcheck ]; then
+				args=(-tags=appengine "$args")
+			fi
+			#~ export GOROOT="$AE_PATH/goroot"
 		fi
 	fi
 
@@ -84,7 +92,7 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	dir=$(dirname "$dir")
 done
 #~ echo "\$GOPATH=$GOPATH"
-exec "$real_prog" "$@"
+exec "$real_prog" "${args[@]}"
 
 
 # Copyright (c) 2014 Frits van Bommel

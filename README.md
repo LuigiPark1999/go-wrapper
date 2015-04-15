@@ -8,7 +8,7 @@ If it finds a `_vendor/src`, it adds that to the *front* of `$GOPATH`, so that `
  * invoke `go get` from outside your workspace: `(cd ~ ; go get $PACKAGE)`
 
 If you use Go for App Engine, it will use the App Engine SDK tools if:
- * it finds them in $AE_PATH or ~/opt/google_appengine (default)
+ * it finds them in $AE_PATH or ~/opt/go_appengine (default)
  * the current directory or any ancestor encoutered before a workspace root contains a file named `app.yaml`.
 It will also use `goapp` if invoked as `go`.
 
