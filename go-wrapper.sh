@@ -2,100 +2,102 @@
 # Add the innermost enclosing directory containing a src/ subdir
 # with .go files in it to GOPATH.
 #
-# Do the same for _vendor/src dirs.
+# Figure out $GOROOT from a set of defaults if not set correctly already.
 #
 # Then run the program with the same name from $GOROOT/bin
 # Unless we're running in an appengine path, then we run $APPENGINE/$0
 #
 # License: See the comment at the end of the file.
 
-# If the name starts with 'r' (for real), ignore app engine.
+# The name of the program to find and run.
 name="$(basename "$0")"
+
+# If the name starts with 'r' (for real), ignore App Engine.
 allow_ae=1
 if [ "${name:0:1}" = "r" ]; then
 	name="${name:1}"
 	allow_ae=0
 fi
 
-real_prog="$GOROOT/bin/$(basename "$name")"
-
-args=("$@")
-
-if [ "$AE_PATH" = "" ]; then
-	AE_PATH=~/opt/go_appengine
+# Ditto if App Engine tools can't be found.
+AE_PATH="${AE_PATH:-$HOME/opt/go_appengine}" # Get a default if not set.
+if [ ! -x "$AE_PATH/goapp" ]; then
+	allow_ae=0
 fi
 
-if [ ! -f "$real_prog" ]; then
+# Find $GOROOT if not set (correctly)
+for dir in "$GOROOT" ~/opt/go /usr/local/go; do
+	if [ -x "$dir/bin/go" ]; then
+		export GOROOT="$dir"
+		break
+	fi
+done
+
+# Find the program to run
+real_prog="$GOROOT/bin/$name"
+if [ ! -x "$real_prog" - a -x "$AE_PATH/$name" ]; then
+	# Last hope: use App Engine equivalent.
+	real_prog="$AE_PATH/$name"
+elif [ ! -f "$real_prog" ]; then
 	echo "Can't run $real_prog: does not exist" >2
 	exit 1
 elif [ ! -x "$real_prog" ]; then
 	echo "Can't run $real_prog: not executable" >2
 	exit 2
 fi
+args=("$@")
 
-last=0
 
 dir="$(pwd)"
 while [ "$dir" != / -a "$dir" != "$HOME" ]; do
-	# Unless the invoked name starts with 'r', check for App Engine SDK.
-	if [ "$allow_ae" = "1" ]; then
-		if [ -f "$dir/app.yaml" ]; then
-			# App engine path
-			ae_prog="$AE_PATH/$name"
-			if [ -x "$ae_prog" ]; then
-				real_prog="$ae_prog"
-			fi
-			export "GOPATH=$GOPATH:$AE_PATH/goroot"
-
-			if [ "$name" = go ]; then
-				case "${args[0]}" in
-					build|test)
-						real_prog="$AE_PATH/goapp"
-				esac
-			elif [ "$name" = errcheck ]; then
-				args=(-tags=appengine "$args")
-			fi
-			#~ export GOROOT="$AE_PATH/goroot"
+	# If enabled, check for App Engine.
+	if [ "$allow_ae" = "1" -a -f "$dir/app.yaml" ]; then
+		# App engine path
+		ae_prog="$AE_PATH/$name"
+		if [ -x "$ae_prog" ]; then
+			real_prog="$ae_prog"
 		fi
+		# Add App Engine's goroot directory to $GOPATH, don't set $GOROOT to it.
+		# This still allows non-App Engine tools to find the sources for "appengine" packages.
+		export "GOPATH=$GOPATH:$AE_PATH/goroot"
+
+		# Special-case a few specific programs.
+		if [ "$name" = go ]; then
+			case "${args[0]}" in
+				build|test|serve|deploy)
+					real_prog="$AE_PATH/goapp"
+			esac
+		elif [ "$name" = errcheck ]; then
+			args=(-tags=appengine "$args")
+		fi
+		# Stop looking for app.yaml
+		allow_ae=0
 	fi
 
 	# Check if there's a src dir containing *.go files here
 	if [ -d "$dir/src" ] && find -L "$dir/src" -maxdepth 10 -name '*.go' -print -quit | grep . --quiet; then
 
-		# Skip _vendor/src, let below code handle that
-		if [[ "$dir" != */_vendor ]]; then
-
-			# Add to $GOPATH if not already in $GOROOT or $GOPATH
-			if [[ ":$GOROOT:$GOPATH:" != *":$dir:"* ]]; then
-				#~ echo "Adding $dir to \$GOPATH"
-				export "GOPATH=$GOPATH:$dir"
-			fi
-
-			last=1
+		# Add to $GOPATH if not already in $GOROOT or $GOPATH
+		if [[ ":$GOROOT:$GOPATH:" != *":$dir:"* ]]; then
+			#~ echo "Adding $dir to \$GOPATH"
+			export "GOPATH=$GOPATH:$dir"
 		fi
-	fi
 
-	# Check if there's a _vendor/src dir containing *.go files here
-	if [ -d "$dir/_vendor/src" ] && find -L "$dir/_vendor/src" -maxdepth 10 -name '*.go' -print -quit | grep . --quiet; then
-
-		# Add to the front of $GOPATH even if already in $GOROOT or $GOPATH
-		# This should make sure "go get" puts packages here.
-		#~ echo "Adding $dir to \$GOPATH"
-		export "GOPATH=$dir/_vendor:$GOPATH"
-	fi
-
-	# Stop after the first directory containing a go workspace or _vendor path.
-	if [ $last = 1 ]; then
 		break
 	fi
 
-	dir=$(dirname "$dir")
+	dir="$(dirname "$dir")"
 done
+
+# Compensate for initially-empty $GOPATH
+GOPATH="${GOPATH#:}"	# Remove empty prefix
+GOPATH="${GOPATH%:}"	# Remove empty suffix
+
 #~ echo "\$GOPATH=$GOPATH"
 exec "$real_prog" "${args[@]}"
 
 
-# Copyright (c) 2014 Frits van Bommel
+# Copyright (c) 2015 Frits van Bommel
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
