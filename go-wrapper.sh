@@ -59,7 +59,7 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 		fi
 		# Add App Engine's goroot directory to $GOPATH, don't set $GOROOT to it.
 		# This still allows non-App Engine tools to find the sources for "appengine" packages.
-		export "GOPATH=$GOPATH:$AE_PATH/goroot"
+		export "GOPATH=${GOPATH:+$GOPATH:}$AE_PATH/goroot"
 
 		# Special-case a few specific programs.
 		if [ "$name" = go ]; then
@@ -80,7 +80,7 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 		# Add to $GOPATH if not already in $GOROOT or $GOPATH
 		if [[ ":$GOROOT:$GOPATH:" != *":$dir:"* ]]; then
 			#~ echo "Adding $dir to \$GOPATH"
-			export "GOPATH=$GOPATH:$dir"
+			export "GOPATH=${GOPATH:+$GOPATH:}$dir"
 		fi
 
 		break
@@ -88,10 +88,6 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 
 	dir="$(dirname "$dir")"
 done
-
-# Compensate for initially-empty $GOPATH
-GOPATH="${GOPATH#:}"	# Remove empty prefix
-GOPATH="${GOPATH%:}"	# Remove empty suffix
 
 #~ echo "\$GOPATH=$GOPATH"
 exec "$real_prog" "${args[@]}"
