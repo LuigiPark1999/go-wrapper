@@ -35,7 +35,7 @@ done
 
 # Find the program to run
 real_prog="$GOROOT/bin/$name"
-if [ ! -x "$real_prog" - a -x "$AE_PATH/$name" ]; then
+if [ ! -x "$real_prog" -a -x "$AE_PATH/$name" ]; then
 	# Last hope: use App Engine equivalent.
 	real_prog="$AE_PATH/$name"
 elif [ ! -f "$real_prog" ]; then
