@@ -12,17 +12,26 @@
 # The name of the program to find and run.
 name="$(basename "$0")"
 
+# Command line parameters to use. May be edited later.
+args=("$@")
+
+# Will hold the program to run in the end.
+unset real_prog
+
+
 # If the name starts with 'r' (for real), ignore App Engine.
 allow_ae=1
 if [ "${name:0:1}" = "r" ]; then
 	name="${name:1}"
 	allow_ae=0
+	unset AE_PATH
 fi
 
 # Ditto if App Engine tools can't be found.
 AE_PATH="${AE_PATH:-$HOME/opt/go_appengine}" # Get a default if not set.
 if [ ! -x "$AE_PATH/goapp" ]; then
 	allow_ae=0
+	unset AE_PATH
 fi
 
 # Find $GOROOT if not set (correctly)
@@ -33,21 +42,8 @@ for dir in "$GOROOT" ~/opt/go /usr/local/go; do
 	fi
 done
 
-# Find the program to run
-real_prog="$GOROOT/bin/$name"
-if [ ! -x "$real_prog" -a -x "$AE_PATH/$name" ]; then
-	# Last hope: use App Engine equivalent.
-	real_prog="$AE_PATH/$name"
-elif [ ! -f "$real_prog" ]; then
-	echo "Can't run $real_prog: does not exist" >2
-	exit 1
-elif [ ! -x "$real_prog" ]; then
-	echo "Can't run $real_prog: not executable" >2
-	exit 2
-fi
-args=("$@")
-
-
+# Walk up the current path looking for additions to $GOPATH and signs of
+# App Engine usage.
 dir="$(pwd)"
 while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	# If enabled, check for App Engine.
@@ -64,11 +60,18 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 		# Special-case a few specific programs.
 		if [ "$name" = go ]; then
 			case "${args[0]}" in
+				deploy)
+					# TODO: Check for -oauth in other positions too.
+					if [ "${args[1]}" != -oauth ]; then
+						args=(deploy -oauth "${args[@]:1}")
+					fi
+					;;&
 				build|test|serve|deploy)
 					real_prog="$AE_PATH/goapp"
+					;;
 			esac
 		elif [ "$name" = errcheck ]; then
-			args=(-tags=appengine "$args")
+			args=(-tags=appengine "${args[@]}")
 		fi
 		# Stop looking for app.yaml
 		allow_ae=0
@@ -89,7 +92,35 @@ while [ "$dir" != / -a "$dir" != "$HOME" ]; do
 	dir="$(dirname "$dir")"
 done
 
+# If we haven't yet decided which program to run, find it now using our new and
+# improved $GOPATH.
+if [ ! -x "$real_prog" ]; then
+	# Get a list of possible executable paths, in order of priority.
+	IFS=':' read -ra paths <<<"${GOROOT:+$GOROOT/bin:}${GOBIN:+$GOBIN:}${GOPATH:+${GOPATH//://bin:}/bin:}$PATH"
+
+	# Used to prevent going into an infinite loop.
+	this_script="$(readlink -e "$0")"
+
+	# Find the program to run by checking each path in that list.
+	for path in "${paths[@]}"; do
+		# Don't use -a here to avoid readlink being called on non-executables.
+		if [ -x "$path/$name" ] && [ "$(readlink -e "$path/$name")" != "$this_script" ]; then
+			real_prog="$path/$name"
+			break
+		fi
+	done
+
+	# Error out if we haven't found anything.
+	if [ ! -x "$real_prog" ]; then
+		echo "Can't run $name: not executable or does not exist" >/dev/stderr
+		exit 1
+	fi
+fi
+
+
 #~ echo "\$GOPATH=$GOPATH"
+
+# Finally, delegate to the real program.
 exec "$real_prog" "${args[@]}"
 
 
